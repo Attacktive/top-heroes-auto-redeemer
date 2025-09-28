@@ -1,0 +1,29 @@
+version: 2
+updates:
+  - package-ecosystem: 'github-actions'
+    directory: '/.github'
+    schedule:
+      interval: 'daily'
+      time: '00:00'
+    labels:
+      - 'CI/CD'
+    commit-message:
+      prefix: 'ci'
+  - package-ecosystem: 'npm'
+    directory: '/'
+    schedule:
+      interval: 'daily'
+      time: '00:00'
+    labels:
+      - 'CI/CD'
+    commit-message:
+      prefix: 'ci'
+    groups:
+      eslint:
+        patterns:
+          - 'eslint'
+          - '@eslint/js'
+      typescript-eslint:
+        patterns:
+          - 'typescript-eslint'
+          - '@typescript-eslint/*'
