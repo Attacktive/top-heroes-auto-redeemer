@@ -1,26 +1,37 @@
-app = "top-heroes-auto-redeemer"
-primary_region = "sjc"
+# fly.toml app configuration file generated for top-heroes-auto-redeemer on 2025-10-02T10:11:49+09:00
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = 'top-heroes-auto-redeemer'
+primary_region = 'sjc'
 swap_size_mb = 1024
 
-[deploy]
-strategy = "rolling"
+[build]
 
-[[vm]]
-cpu_kind = "shared"
-cpus = 1
-memory = "256MB"
+[deploy]
+  strategy = 'rolling'
 
 [http_service]
-internal_port = 8080
+  internal_port = 3000
 
-[[http_service.checks]]
-interval = "60s"
-protocol = "http"
-method = "GET"
-path = "/"
-grace_period = "10s"
-timeout = "5s"
+  [[http_service.checks]]
+    interval = '1m0s'
+    timeout = '5s'
+    grace_period = '10s'
+    method = 'GET'
+    path = '/'
+    protocol = 'http'
 
-[[services.ports]]
-handlers = ["tls"]
-port = 443
+[[services]]
+  protocol = ''
+  internal_port = 0
+
+  [[services.ports]]
+    port = 443
+    handlers = ['tls']
+
+[[vm]]
+  memory = '256MB'
+  cpu_kind = 'shared'
+  cpus = 1
