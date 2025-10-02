@@ -6,8 +6,8 @@ import {
 	REST,
 	Routes
 } from 'discord.js';
-import { userStore } from './user-store';
-import { useRedeemer } from './redeemer';
+import { userStore } from './user-store.js';
+import { useRedeemer } from './redeemer.js';
 
 const extractGiftCode = (message: string) => {
 	const pattern = /🎁\s*Gift\s*Code\s+#\s*([0-9A-F]{10})/i;

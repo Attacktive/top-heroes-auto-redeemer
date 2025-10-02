@@ -1,5 +1,5 @@
 import axios, { type AxiosResponse, type RawAxiosRequestHeaders } from 'axios';
-import { userStore } from './user-store';
+import { userStore } from './user-store.js';
 
 const SITE_ID = 1028526 as const;
 const PROJECT_ID = 1028637 as const;

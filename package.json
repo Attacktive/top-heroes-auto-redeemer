@@ -10,9 +10,9 @@
 	"license": "MIT",
 	"type": "module",
 	"scripts": {
-		"build": "tsc",
-		"dev": "tsx --env-file=.env.dev src/index.ts",
-		"start": "node dist/index.js",
+		"build": "rm -fr dist; tsc",
+		"dev": "tsx --env-file=.env.dev src/main.ts",
+		"start": "node dist/src/main.js",
 		"lint": "eslint"
 	},
 	"dependencies": {

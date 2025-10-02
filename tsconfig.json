@@ -1,9 +1,9 @@
 {
 	"compilerOptions": {
 		"target": "ESNext",
-		"module": "ESNext",
+		"module": "NodeNext",
 		"lib": ["ESNext"],
-		"moduleResolution": "Node",
+		"moduleResolution": "NodeNext",
 		"allowSyntheticDefaultImports": true,
 		"esModuleInterop": true,
 		"forceConsistentCasingInFileNames": true,
@@ -15,5 +15,3 @@
 	"include": ["src/**/*.ts"],
 	"exclude": ["node_modules", "dist"]
 }
-
-
