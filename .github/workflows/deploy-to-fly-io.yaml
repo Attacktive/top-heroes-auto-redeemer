@@ -17,6 +17,6 @@ jobs:
       - name: 'Setup flyctl'
         uses: 'superfly/flyctl-actions/setup-flyctl@63da3ecc5e2793b98a3f2519b3d75d4f4c11cec2'
       - name: 'Set scale count'
-        run: 'flyctl scale count 1'
+        run: 'flyctl scale count 1 --yes'
       - name: 'Deploy to Fly.io'
         run: 'flyctl deploy --image ghcr.io/attacktive/top-heroes-giftcode:latest --ha=false'
