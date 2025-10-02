@@ -19,4 +19,4 @@ jobs:
       - name: 'Set scale count'
         run: 'flyctl scale count 1 --yes'
       - name: 'Deploy to Fly.io'
-        run: 'flyctl deploy --image ghcr.io/attacktive/top-heroes-giftcode:latest --ha=false'
+        run: 'flyctl deploy --image ghcr.io/attacktive/top-heroes-auto-redeemer:latest --ha=false'
