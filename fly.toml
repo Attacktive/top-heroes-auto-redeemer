@@ -1,0 +1,26 @@
+app = "top-heroes-auto-redeemer"
+primary_region = "sjc"
+swap_size_mb = 1024
+
+[deploy]
+strategy = "rolling"
+
+[[vm]]
+cpu_kind = "shared"
+cpus = 1
+memory = "256MB"
+
+[http_service]
+internal_port = 8080
+
+[[http_service.checks]]
+interval = "60s"
+protocol = "http"
+method = "GET"
+path = "/"
+grace_period = "10s"
+timeout = "5s"
+
+[[services.ports]]
+handlers = ["tls"]
+port = 443
