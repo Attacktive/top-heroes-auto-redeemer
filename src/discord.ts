@@ -8,6 +8,7 @@ import {
 } from 'discord.js';
 import { userStore } from './user-store.js';
 import { useRedeemer } from './redeemer.js';
+import { analytics } from './analytics.js';
 
 const extractGiftCode = (message: string) => {
 	const pattern = /🎁\s*Gift\s*Code\s+#\s*([0-9A-F]{10})/i;
@@ -56,7 +57,12 @@ const redeemCommand = new SlashCommandBuilder()
 	)
 	.toJSON();
 
-const commands = [addUserCommand, removeUserCommand, clearUsersCommand, listUsersCommand, redeemCommand];
+const statsCommand = new SlashCommandBuilder()
+	.setName('stats')
+	.setDescription('Show redemption statistics')
+	.toJSON();
+
+const commands = [addUserCommand, removeUserCommand, clearUsersCommand, listUsersCommand, redeemCommand, statsCommand];
 
 const addUser = async (interaction: ChatInputCommandInteraction) => {
 	const userId = interaction.options.getString('user-id', true);
@@ -124,6 +130,7 @@ const redeemManually = async (interaction: ChatInputCommandInteraction) => {
 	try {
 		const webClient = useRedeemer();
 		const succeeded = await webClient.redeem(giftCode);
+		succeeded.forEach(userId => analytics.addRecord(giftCode, userId, true));
 		if (succeeded.length === 0) {
 			await interaction.editReply({ content: `❌ Failed to redeem code \`${giftCode}\` for any users` });
 		} else {
@@ -134,6 +141,26 @@ const redeemManually = async (interaction: ChatInputCommandInteraction) => {
 		console.error('Manual redeem error:', error);
 		await interaction.editReply({ content: `❌ Error redeeming code \`${giftCode}\`: ${error}` });
 	}
+};
+
+const showStats = async (interaction: ChatInputCommandInteraction) => {
+	const stats = analytics.getStats();
+	const recent = analytics.getRecentRedemptions(5);
+	let content = `📊 **Redemption Statistics**\n`;
+	content += `Total Redemptions: ${stats.total}\n`;
+	content += `Successful: ${stats.successful} (${stats.successRate}%)\n`;
+	content += `Failed: ${stats.failed}\n`;
+	content += `Unique Codes: ${stats.uniqueCodes}\n`;
+	content += `Active Users: ${stats.uniqueUsers}\n\n`;
+	if (recent.length > 0) {
+		content += `🕒 **Recent Redemptions:**\n`;
+		recent.forEach(record => {
+			const status = record.success ? '✅' : '❌';
+			const time = record.timestamp.toLocaleTimeString();
+			content += `${status} \`${record.code}\` - ${time}\n`;
+		});
+	}
+	await interaction.reply({ content, flags: 'Ephemeral' });
 };
 
 const handleSlashCommand = async (interaction: ChatInputCommandInteraction) => {
@@ -152,6 +179,9 @@ const handleSlashCommand = async (interaction: ChatInputCommandInteraction) => {
 			break;
 		case 'redeem':
 			await redeemManually(interaction);
+			break;
+		case 'stats':
+			await showStats(interaction);
 			break;
 		default:
 			await interaction.reply({
@@ -242,7 +272,7 @@ export const useDiscord = async () => {
 				try {
 					const webClient = useRedeemer();
 					const succeeded = await webClient.redeem(giftCode);
-
+					succeeded.forEach(userId => analytics.addRecord(giftCode, userId, true));
 					if (succeeded.length > 0) {
 						const successList = succeeded.map(id => `\`${id}\``).join(', ');
 						await channel.send(`✅ Auto-redeemed code \`${giftCode}\` for: ${successList}`);
