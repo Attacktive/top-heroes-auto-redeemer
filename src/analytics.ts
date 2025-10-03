@@ -21,7 +21,12 @@ const useAnalytics = () => {
 		const total = records.length;
 		const successful = records.filter(({ success }) => success).length;
 		const failed = total - successful;
-		const successRate = total > 0 ? (successful / total * 100).toFixed(1) : '0';
+
+		let successRate = '0';
+		if (total > 0) {
+			successRate = (successful / total * 100).toFixed(1);
+		}
+
 		const uniqueCodes = new Set(records.map(({ code }) => code)).size;
 		const uniqueUsers = new Set(records.map(({ userId }) => userId)).size;
 
@@ -41,13 +46,17 @@ const useAnalytics = () => {
 
 	const getUserStats = (userId: string) => {
 		const userRecords = records.filter(r => r.userId === userId);
-		const successful = userRecords.filter(r => r.success).length;
+		const successful = userRecords.filter(({ success }) => success).length;
+		let successRate = '0';
+		if (userRecords.length > 0) {
+			successRate = (successful / userRecords.length * 100).toFixed(1);
+		}
 
 		return {
 			total: userRecords.length,
 			successful,
 			failed: userRecords.length - successful,
-			successRate: userRecords.length > 0 ? (successful / userRecords.length * 100).toFixed(1) : '0'
+			successRate
 		};
 	};
 
