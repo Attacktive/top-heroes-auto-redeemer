@@ -4,7 +4,8 @@ import {
 	SlashCommandBuilder,
 	ChatInputCommandInteraction,
 	REST,
-	Routes
+	Routes,
+	Message
 } from 'discord.js';
 import { userStore } from './user-store.js';
 import { useRedeemer } from './redeemer.js';
@@ -182,6 +183,32 @@ const showVersion = async (interaction: ChatInputCommandInteraction) => {
 	await interaction.reply({ content, flags: 'Ephemeral' });
 };
 
+const handleMessageCreate = async ({ author, content, channel }: Message) => {
+	const { id, globalName } = author;
+
+	console.log(`💬 Message from ${globalName} (${id}): ${content}`);
+
+	const giftCode = extractGiftCode(content);
+	if (giftCode) {
+		console.log(`🎁 Auto-detected gift code: ${giftCode}`);
+
+		try {
+			const webClient = useRedeemer();
+			const succeeded = await webClient.redeem(giftCode);
+			succeeded.forEach(userId => analytics.addRecord(giftCode, userId, true));
+			if (succeeded.length > 0) {
+				const successList = succeeded.map(id => `\`${id}\``).join(', ');
+				await (channel as any).send(`✅ Auto-redeemed code \`${giftCode}\` for: ${successList}`);
+			} else {
+				await (channel as any).send(`❌ Failed to redeem code \`${giftCode}\` for any configured users`);
+			}
+		} catch (error) {
+			console.error('Auto-redeem error:', error);
+			await (channel as any).send(`❌ Error auto-redeeming code \`${giftCode}\`: ${error}`);
+		}
+	}
+};
+
 const handleSlashCommand = async (interaction: ChatInputCommandInteraction) => {
 	switch (interaction.commandName) {
 		case 'add-user':
@@ -276,35 +303,7 @@ export const useDiscord = async () => {
 		}
 	);
 
-	client.on(
-		'messageCreate',
-		async (message) => {
-			const { author, content, channel } = message;
-			const { id, globalName } = author;
-
-			console.log(`💬 Message from ${globalName} (${id}): ${content}`);
-
-			const giftCode = extractGiftCode(content);
-			if (giftCode) {
-				console.log(`🎁 Auto-detected gift code: ${giftCode}`);
-
-				try {
-					const webClient = useRedeemer();
-					const succeeded = await webClient.redeem(giftCode);
-					succeeded.forEach(userId => analytics.addRecord(giftCode, userId, true));
-					if (succeeded.length > 0) {
-						const successList = succeeded.map(id => `\`${id}\``).join(', ');
-						await channel.send(`✅ Auto-redeemed code \`${giftCode}\` for: ${successList}`);
-					} else {
-						await channel.send(`❌ Failed to redeem code \`${giftCode}\` for any configured users`);
-					}
-				} catch (error) {
-					console.error('Auto-redeem error:', error);
-					await channel.send(`❌ Error auto-redeeming code \`${giftCode}\`: ${error}`);
-				}
-			}
-		}
-	);
+	client.on('messageCreate', handleMessageCreate);
 
 	await registerCommands(TOKEN);
 	await client.login(TOKEN);
