@@ -14,4 +14,7 @@ RUN npm ci --omit=dev
 RUN addgroup --system appuser && adduser --system --group appuser
 USER appuser
 
+ENV BUILD_TIME=""
+ENV GIT_TAG=""
+
 CMD ["npm", "run", "start"]

@@ -62,7 +62,12 @@ const statsCommand = new SlashCommandBuilder()
 	.setDescription('Show redemption statistics')
 	.toJSON();
 
-const commands = [addUserCommand, removeUserCommand, clearUsersCommand, listUsersCommand, redeemCommand, statsCommand];
+const versionCommand = new SlashCommandBuilder()
+	.setName('version')
+	.setDescription('Show bot version and build info')
+	.toJSON();
+
+const commands = [addUserCommand, removeUserCommand, clearUsersCommand, listUsersCommand, redeemCommand, statsCommand, versionCommand];
 
 const addUser = async (interaction: ChatInputCommandInteraction) => {
 	const userId = interaction.options.getString('user-id', true);
@@ -163,6 +168,23 @@ const showStats = async (interaction: ChatInputCommandInteraction) => {
 	await interaction.reply({ content, flags: 'Ephemeral' });
 };
 
+const showVersion = async (interaction: ChatInputCommandInteraction) => {
+	const version = process.env.npm_package_version || 'unknown';
+	const buildTime = process.env.BUILD_TIME || 'unknown';
+	const gitTag = process.env.GIT_TAG || 'unknown';
+	const uptime = Math.floor(process.uptime());
+	const uptimeStr = `${Math.floor(uptime / 3600)}h ${Math.floor((uptime % 3600) / 60)}m ${uptime % 60}s`;
+	
+	const content = `🤖 **Bot Version Info**\n` +
+		`Version: \`${version}\`\n` +
+		`Git Tag: \`${gitTag}\`\n` +
+		`Build: \`${buildTime}\`\n` +
+		`Uptime: \`${uptimeStr}\`\n` +
+		`Node.js: \`${process.version}\``;
+	
+	await interaction.reply({ content, flags: 'Ephemeral' });
+};
+
 const handleSlashCommand = async (interaction: ChatInputCommandInteraction) => {
 	switch (interaction.commandName) {
 		case 'add-user':
@@ -182,6 +204,9 @@ const handleSlashCommand = async (interaction: ChatInputCommandInteraction) => {
 			break;
 		case 'stats':
 			await showStats(interaction);
+			break;
+		case 'version':
+			await showVersion(interaction);
 			break;
 		default:
 			await interaction.reply({
