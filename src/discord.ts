@@ -258,10 +258,7 @@ export const useDiscord = async () => {
 		'messageCreate',
 		async (message) => {
 			const { author, content, channel } = message;
-			const { id, globalName, bot } = author;
-			if (bot) {
-				return;
-			}
+			const { id, globalName } = author;
 
 			console.log(`💬 Message from ${globalName} (${id}): ${content}`);
 
