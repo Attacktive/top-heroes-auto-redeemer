@@ -184,6 +184,10 @@ const showVersion = async (interaction: ChatInputCommandInteraction) => {
 };
 
 const handleMessageCreate = async ({ author, content, channel }: Message) => {
+	if (!channel.isSendable()) {
+		throw new Error('Cannot send a message through this channel. 😳');
+	}
+
 	const { id, globalName } = author;
 
 	console.log(`💬 Message from ${globalName} (${id}): ${content}`);
@@ -198,13 +202,13 @@ const handleMessageCreate = async ({ author, content, channel }: Message) => {
 			succeeded.forEach(userId => analytics.addRecord(giftCode, userId, true));
 			if (succeeded.length > 0) {
 				const successList = succeeded.map(id => `\`${id}\``).join(', ');
-				await (channel as any).send(`✅ Auto-redeemed code \`${giftCode}\` for: ${successList}`);
+				await channel.send(`✅ Auto-redeemed code \`${giftCode}\` for: ${successList}`);
 			} else {
-				await (channel as any).send(`❌ Failed to redeem code \`${giftCode}\` for any configured users`);
+				await channel.send(`❌ Failed to redeem code \`${giftCode}\` for any configured users`);
 			}
 		} catch (error) {
 			console.error('Auto-redeem error:', error);
-			await (channel as any).send(`❌ Error auto-redeeming code \`${giftCode}\`: ${error}`);
+			await channel.send(`❌ Error auto-redeeming code \`${giftCode}\`: ${error}`);
 		}
 	}
 };
