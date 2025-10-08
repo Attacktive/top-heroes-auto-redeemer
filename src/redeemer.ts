@@ -46,6 +46,8 @@ export const useRedeemer = (userIds?: string[]) => {
 		redemption_code: giftCode
 	});
 
+	const sleep = (duration = 666) => new Promise(resolve => setTimeout(resolve, duration));
+
 	const redeem = async (giftCode: string) => {
 		console.log(`🎁 Attempting to redeem gift code: ${giftCode}`);
 		console.log(`👥 Target users: ${targetUserIds.join(', ')}`);
@@ -56,7 +58,7 @@ export const useRedeemer = (userIds?: string[]) => {
 		}
 
 		const succeeded: string[] = [];
-		for (const userId of targetUserIds) {
+		for (const [index, userId] of targetUserIds.entries()) {
 			const axiosInstance = createAxiosInstance();
 
 			try {
@@ -99,6 +101,10 @@ export const useRedeemer = (userIds?: string[]) => {
 				succeeded.push(userId);
 			} catch (error) {
 				console.error(`❌ Error processing user ${userId}:`, error);
+			}
+
+			if (index < targetUserIds.length - 1) {
+				await sleep();
 			}
 		}
 
