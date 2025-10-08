@@ -18,6 +18,7 @@ Discord bot that automatically redeems gift codes for the game *Top Heroes*.
 - `/list-users` - List all users (DM)
 - `/redeem <code>` - Manually redeem code
 - `/stats` - Show redemption statistics
+- `/version` - Show bot version and build info
 
 ## Setup
 

@@ -19,6 +19,13 @@ jobs:
     steps:
       - name: 'Checkout'
         uses: 'actions/checkout@v5'
+        with:
+          fetch-depth: 0
+      - name: 'Get version info'
+        id: version
+        run: |
+          echo "build_time=$(date -u +"%Y-%m-%d %H:%M:%S UTC")" >> $GITHUB_OUTPUT
+          echo "git_tag=$(git describe --tags --always)" >> $GITHUB_OUTPUT
       - name: 'Authenticate to GitHub Packages'
         uses: 'docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef'
         with:
@@ -38,3 +45,6 @@ jobs:
           push: true
           tags: "${{ steps.meta.outputs.tags }}"
           labels: "${{ steps.meta.outputs.labels }}"
+          build-args: |
+            BUILD_TIME=${{ steps.version.outputs.build_time }}
+            GIT_TAG=${{ steps.version.outputs.git_tag }}
