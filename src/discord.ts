@@ -68,7 +68,12 @@ const versionCommand = new SlashCommandBuilder()
 	.setDescription('Show bot version and build info')
 	.toJSON();
 
-const commands = [addUserCommand, removeUserCommand, clearUsersCommand, listUsersCommand, redeemCommand, statsCommand, versionCommand];
+const serversCommand = new SlashCommandBuilder()
+	.setName('servers')
+	.setDescription('List all servers (guilds) the bot has joined')
+	.toJSON();
+
+const commands = [addUserCommand, removeUserCommand, clearUsersCommand, listUsersCommand, redeemCommand, statsCommand, versionCommand, serversCommand];
 
 const addUser = async (interaction: ChatInputCommandInteraction) => {
 	const userId = interaction.options.getString('user-id', true);
@@ -152,6 +157,7 @@ const redeemManually = async (interaction: ChatInputCommandInteraction) => {
 const showStats = async (interaction: ChatInputCommandInteraction) => {
 	const stats = analytics.getStats();
 	const recent = analytics.getRecentRedemptions(5);
+
 	let content = `📊 **Redemption Statistics**\n`;
 	content += `Total Redemptions: ${stats.total}\n`;
 	content += `Successful: ${stats.successful} (${stats.successRate}%)\n`;
@@ -160,12 +166,14 @@ const showStats = async (interaction: ChatInputCommandInteraction) => {
 	content += `Active Users: ${stats.uniqueUsers}\n\n`;
 	if (recent.length > 0) {
 		content += `🕒 **Recent Redemptions:**\n`;
-		recent.forEach(record => {
+
+		for (const record of recent) {
 			const status = record.success ? '✅' : '❌';
 			const time = record.timestamp.toLocaleTimeString();
 			content += `${status} \`${record.code}\` - ${time}\n`;
-		});
+		}
 	}
+
 	await interaction.reply({ content, flags: 'Ephemeral' });
 };
 
@@ -181,6 +189,43 @@ const showVersion = async (interaction: ChatInputCommandInteraction) => {
 		`Node.js: \`${process.version}\``;
 
 	await interaction.reply({ content, flags: 'Ephemeral' });
+};
+
+const showServers = async (interaction: ChatInputCommandInteraction) => {
+	const guilds = interaction.client.guilds.cache;
+	const totalServers = guilds.size;
+
+	if (totalServers === 0) {
+		await interaction.reply({
+			content: 'I\'m not currently in any servers! 😭',
+			flags: 'Ephemeral'
+		});
+
+		return;
+	}
+
+	const allServerLines = guilds.map((guild, index) => `${index + 1}. **${guild.name}** (ID: \`${guild.id}\`) - ${guild.memberCount} members`);
+
+	if (totalServers <= 5) {
+		const serverList = allServerLines.join('\n');
+		const content = `🌎 **Servers I'm In (${totalServers} Total):**
+${serverList}`;
+
+		await interaction.reply({ content, flags: 'Ephemeral' });
+	} else {
+		const limitedServerList = allServerLines.slice(0, 5).join('\n');
+
+		const content = `🌎 **Servers I'm In (${totalServers} Total):**
+${limitedServerList}
+... and **${totalServers - 5}** more! Sending the full list in DM. 🤫`;
+
+		await interaction.reply({ content, flags: 'Ephemeral' });
+
+		const fullServerList = allServerLines.join('\n');
+
+		await interaction.user.send(`🌎 **Full Server List (${totalServers} Total):**
+${fullServerList}`);
+	}
 };
 
 const handleMessageCreate = async ({ author, content, channel }: Message) => {
@@ -235,6 +280,9 @@ const handleSlashCommand = async (interaction: ChatInputCommandInteraction) => {
 			break;
 		case 'version':
 			await showVersion(interaction);
+			break;
+		case 'servers':
+			await showServers(interaction);
 			break;
 		default:
 			await interaction.reply({
