@@ -19,10 +19,11 @@ interface RedeemRequestBody {
 	redemption_code: string;
 }
 
-interface RedeemResponse {
-	status?: string;
-	message?: string;
-	data?: unknown;
+interface RedemptionResponse {
+	code: number;
+	message: string;
+	data: string | null;
+	timestamp: number;
 }
 
 export const useRedeemer = (userIds?: string[]) => {
@@ -77,7 +78,7 @@ export const useRedeemer = (userIds?: string[]) => {
 				}
 
 				console.log(`🎯 Redeeming code for user: ${userId}`);
-				const { data: responseData } = await axiosInstance.post<RedeemResponse>(
+				const { data: responseData } = await axiosInstance.post<RedemptionResponse>(
 					URL_TO_REDEEM,
 					createRedeemBody(giftCode),
 					{
@@ -85,20 +86,15 @@ export const useRedeemer = (userIds?: string[]) => {
 					}
 				);
 
-				console.log(`✅ Result for user ${userId}:`, responseData);
+				const { data, code, message } = responseData;
 
-				/* TODO: the following, for example, is still considered a success:
-				 * {
-				 *   code: 80006,
-				 *   data: null,
-				 *   message: 'Maximum limit redemption times reached',
-				 *   timestamp: 1759309939
-				 * }
-				 *
-				 * I'll need to which code really is success.
-				 */
-
-				succeeded.push(userId);
+				// or might be code === 1
+				if (data === 'success') {
+					console.log(`✅ Result for user ${userId}:`, data);
+					succeeded.push(userId);
+				} else {
+					console.error(`❌ Error processing user ${userId}:`, `(${code})`, message);
+				}
 			} catch (error) {
 				console.error(`❌ Error processing user ${userId}:`, error);
 			}
