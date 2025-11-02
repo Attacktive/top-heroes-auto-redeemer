@@ -12,7 +12,7 @@ import { useRedeemer } from './redeemer.js';
 import { analytics } from './analytics.js';
 
 const extractGiftCode = (message: string) => {
-	const pattern = /🎁\s*Gift\s*Code\s+#\s*([0-9A-F]{8})/i;
+	const pattern = /🎁\s*Gift\s*Code\s+#\s*([0-9A-F]+\b)/i;
 	const match = pattern.exec(message);
 	if (match) {
 		return match[1];
