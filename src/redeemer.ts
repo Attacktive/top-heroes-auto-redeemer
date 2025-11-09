@@ -100,7 +100,7 @@ export const useRedeemer = (userIds?: string[]) => {
 			}
 
 			if (index < targetUserIds.length - 1) {
-				await sleep();
+				await sleep(1111);
 			}
 		}
 
