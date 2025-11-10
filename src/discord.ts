@@ -7,9 +7,74 @@ import {
 	Routes,
 	Message
 } from 'discord.js';
+import cron from 'node-cron';
 import { userStore } from './user-store.js';
 import { useRedeemer } from './redeemer.js';
 import { analytics } from './analytics.js';
+
+interface CheckInSchedule {
+	activityId: number;
+	daysRemaining: number;
+	startDate: Date;
+}
+
+let schedule: CheckInSchedule | undefined = undefined;
+let cronTask: cron.ScheduledTask | undefined = undefined;
+
+const runDailyCheckIn = async () => {
+	if (!schedule) {
+		return;
+	}
+
+	try {
+		console.log(`🔄 Running daily check-in for activity ID: ${schedule.activityId} (${schedule.daysRemaining} days remaining)`);
+		const { checkIn } = useRedeemer();
+		const succeeded = await checkIn(schedule.activityId);
+
+		if (succeeded.length > 0) {
+			console.log(`✅ Check-in successful for activity ${schedule.activityId}: ${succeeded.length} user(s)`);
+		} else {
+			console.log(`⚠️  Check-in completed but no users succeeded for activity ${schedule.activityId}`);
+		}
+
+		schedule.daysRemaining--;
+
+		if (schedule.daysRemaining <= 0) {
+			console.log(`🏁 Completed check-in schedule for activity ID: ${schedule.activityId}`);
+			stopScheduler();
+			schedule = undefined;
+		}
+	} catch (error) {
+		const activityId = schedule?.activityId ?? 'unknown';
+		console.error(`❌ Error running check-in for activity ${activityId}:`, error);
+	}
+};
+
+const startScheduler = () => {
+	if (cronTask) {
+		return;
+	}
+
+	console.log('⏰ Starting daily check-in scheduler (02:00 UTC)');
+
+	cronTask = cron.schedule(
+		'0 2 * * *', () => {
+			console.log(`🌙 Midnight GMT+02 detected, running daily check-in...`);
+
+			runDailyCheckIn()
+				.catch(error => console.error('❌ Error in daily check-in scheduler:', error));
+		},
+		{ timezone: 'UTC' }
+	);
+};
+
+const stopScheduler = () => {
+	if (cronTask) {
+		cronTask.stop();
+		cronTask = undefined;
+		console.log('⏹️  Stopped daily check-in scheduler');
+	}
+};
 
 const extractGiftCode = (message: string) => {
 	const pattern = /🎁\s*Gift\s*Code\s+#\s*([0-9A-F]+\b)/i;
@@ -73,7 +138,35 @@ const serversCommand = new SlashCommandBuilder()
 	.setDescription('List all servers (guilds) the bot has joined')
 	.toJSON();
 
-const commands = [addUserCommand, removeUserCommand, clearUsersCommand, listUsersCommand, redeemCommand, statsCommand, versionCommand, serversCommand];
+const startCheckInCommand = new SlashCommandBuilder()
+	.setName('start-check-in')
+	.setDescription('Start daily check-in rewards collection for an event')
+	.addIntegerOption(option => option.setName('activity-id')
+		.setDescription('The activity ID for the sign-in event')
+		.setRequired(true)
+	)
+	.addIntegerOption(option => option.setName('days')
+		.setDescription('Event period length in days')
+		.setRequired(true)
+		.setMinValue(1)
+	)
+	.toJSON();
+
+const checkInNowCommand = new SlashCommandBuilder()
+	.setName('check-in-now')
+	.setDescription('Manually trigger check-in rewards collection')
+	.addIntegerOption(option => option.setName('activity-id')
+		.setDescription('The activity ID for the sign-in event')
+		.setRequired(true)
+	)
+	.toJSON();
+
+const stopCheckInCommand = new SlashCommandBuilder()
+	.setName('stop-check-in')
+	.setDescription('Stop the active check-in schedule')
+	.toJSON();
+
+const commands = [addUserCommand, removeUserCommand, clearUsersCommand, listUsersCommand, redeemCommand, statsCommand, versionCommand, serversCommand, startCheckInCommand, checkInNowCommand, stopCheckInCommand];
 
 const addUser = async (interaction: ChatInputCommandInteraction) => {
 	const userId = interaction.options.getString('user-id', true);
@@ -139,8 +232,8 @@ const redeemManually = async (interaction: ChatInputCommandInteraction) => {
 	await interaction.deferReply();
 
 	try {
-		const webClient = useRedeemer();
-		const succeeded = await webClient.redeem(giftCode);
+		const { redeem } = useRedeemer();
+		const succeeded = await redeem(giftCode);
 		succeeded.forEach(userId => analytics.addRecord(giftCode, userId, true));
 		if (succeeded.length === 0) {
 			await interaction.editReply({ content: `❌ Failed to redeem code \`${giftCode}\` for any users` });
@@ -168,7 +261,7 @@ const showStats = async (interaction: ChatInputCommandInteraction) => {
 		content += `🕒 **Recent Redemptions:**\n`;
 
 		for (const record of recent) {
-			const status = record.success ? '✅' : '❌';
+			const status = record.success? '✅': '❌';
 			const time = record.timestamp.toLocaleTimeString();
 			content += `${status} \`${record.code}\` - ${time}\n`;
 		}
@@ -228,6 +321,71 @@ ${fullServerList}`);
 	}
 };
 
+const startCheckIn = async (interaction: ChatInputCommandInteraction) => {
+	const activityId = interaction.options.getInteger('activity-id', true);
+	const days = interaction.options.getInteger('days', true);
+
+	if (schedule) {
+		await interaction.reply({
+			content: `⚠️  A check-in schedule is already active (Activity ID: \`${schedule.activityId}\`, ${schedule.daysRemaining} days remaining). Use /stop-check-in to stop it first.`,
+			flags: 'Ephemeral'
+		});
+		return;
+	}
+
+	schedule = {
+		activityId,
+		daysRemaining: days,
+		startDate: new Date()
+	};
+
+	startScheduler();
+
+	await interaction.reply({
+		content: `✅ Started daily check-in schedule for activity ID \`${activityId}\` (${days} days). Check-ins will run at midnight GMT+02.`,
+		flags: 'Ephemeral'
+	});
+};
+
+const checkInNow = async (interaction: ChatInputCommandInteraction) => {
+	const activityId = interaction.options.getInteger('activity-id', true);
+	await interaction.deferReply();
+
+	try {
+		const { checkIn } = useRedeemer();
+		const succeeded = await checkIn(activityId);
+
+		if (succeeded.length === 0) {
+			await interaction.editReply({ content: `❌ Failed to collect check-in rewards for activity ID \`${activityId}\` for any users` });
+		} else {
+			const successList = succeeded.map(id => `\`${id}\``).join(', ');
+			await interaction.editReply({ content: `✅ Successfully collected check-in rewards for activity ID \`${activityId}\` for: ${successList}` });
+		}
+	} catch (error) {
+		console.error('Manual check-in error:', error);
+		await interaction.editReply({ content: `❌ Error collecting check-in rewards for activity ID \`${activityId}\`: ${error}` });
+	}
+};
+
+const stopCheckIn = async (interaction: ChatInputCommandInteraction) => {
+	if (!schedule) {
+		await interaction.reply({
+			content: '📝 No active check-in schedule',
+			flags: 'Ephemeral'
+		});
+		return;
+	}
+
+	const activityId = schedule.activityId;
+	stopScheduler();
+	schedule = undefined;
+
+	await interaction.reply({
+		content: `🛑 Stopped check-in schedule for activity ID \`${activityId}\``,
+		flags: 'Ephemeral'
+	});
+};
+
 const handleMessageCreate = async ({ author, content, channel }: Message) => {
 	if (!channel.isSendable()) {
 		throw new Error('Cannot send a message through this channel. 😳');
@@ -242,8 +400,8 @@ const handleMessageCreate = async ({ author, content, channel }: Message) => {
 		console.log(`🎁 Auto-detected gift code: ${giftCode}`);
 
 		try {
-			const webClient = useRedeemer();
-			const succeeded = await webClient.redeem(giftCode);
+			const { redeem } = useRedeemer();
+			const succeeded = await redeem(giftCode);
 			succeeded.forEach(userId => analytics.addRecord(giftCode, userId, true));
 			if (succeeded.length > 0) {
 				const successList = succeeded.map(id => `\`${id}\``).join(', ');
@@ -283,6 +441,15 @@ const handleSlashCommand = async (interaction: ChatInputCommandInteraction) => {
 			break;
 		case 'servers':
 			await showServers(interaction);
+			break;
+		case 'start-check-in':
+			await startCheckIn(interaction);
+			break;
+		case 'check-in-now':
+			await checkInNow(interaction);
+			break;
+		case 'stop-check-in':
+			await stopCheckIn(interaction);
 			break;
 		default:
 			await interaction.reply({
