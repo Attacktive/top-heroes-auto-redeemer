@@ -100,7 +100,8 @@ export const useRedeemer = (userIds?: string[]) => {
 			}
 
 			if (index < targetUserIds.length - 1) {
-				await sleep(1111);
+				const delay = 1111 + 2222 * Math.random();
+				await sleep(delay);
 			}
 		}
 
