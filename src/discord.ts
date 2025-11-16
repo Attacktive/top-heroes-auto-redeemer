@@ -9,7 +9,6 @@ import {
 } from 'discord.js';
 import { userStore } from './user-store.js';
 import { useRedeemer } from './redeemer.js';
-import { analytics } from './analytics.js';
 
 const extractGiftCode = (message: string) => {
 	const pattern = /🎁\s*Gift\s*Code\s+#\s*([0-9A-F]+\b)/i;
@@ -58,9 +57,9 @@ const redeemCommand = new SlashCommandBuilder()
 	)
 	.toJSON();
 
-const statsCommand = new SlashCommandBuilder()
-	.setName('stats')
-	.setDescription('Show redemption statistics')
+const serversCommand = new SlashCommandBuilder()
+	.setName('servers')
+	.setDescription('List all servers (guilds) the bot has joined')
 	.toJSON();
 
 const versionCommand = new SlashCommandBuilder()
@@ -68,12 +67,7 @@ const versionCommand = new SlashCommandBuilder()
 	.setDescription('Show bot version and build info')
 	.toJSON();
 
-const serversCommand = new SlashCommandBuilder()
-	.setName('servers')
-	.setDescription('List all servers (guilds) the bot has joined')
-	.toJSON();
-
-const commands = [addUserCommand, removeUserCommand, clearUsersCommand, listUsersCommand, redeemCommand, statsCommand, versionCommand, serversCommand];
+const commands = [addUserCommand, removeUserCommand, clearUsersCommand, listUsersCommand, redeemCommand, serversCommand, versionCommand];
 
 const addUser = async (interaction: ChatInputCommandInteraction) => {
 	const userId = interaction.options.getString('user-id', true);
@@ -141,7 +135,7 @@ const redeemManually = async (interaction: ChatInputCommandInteraction) => {
 	try {
 		const webClient = useRedeemer();
 		const succeeded = await webClient.redeem(giftCode);
-		succeeded.forEach(userId => analytics.addRecord(giftCode, userId, true));
+
 		if (succeeded.length === 0) {
 			await interaction.editReply({ content: `❌ Failed to redeem code \`${giftCode}\` for any users` });
 		} else {
@@ -152,43 +146,6 @@ const redeemManually = async (interaction: ChatInputCommandInteraction) => {
 		console.error('Manual redeem error:', error);
 		await interaction.editReply({ content: `❌ Error redeeming code \`${giftCode}\`: ${error}` });
 	}
-};
-
-const showStats = async (interaction: ChatInputCommandInteraction) => {
-	const stats = analytics.getStats();
-	const recent = analytics.getRecentRedemptions(5);
-
-	let content = `📊 **Redemption Statistics**\n`;
-	content += `Total Redemptions: ${stats.total}\n`;
-	content += `Successful: ${stats.successful} (${stats.successRate}%)\n`;
-	content += `Failed: ${stats.failed}\n`;
-	content += `Unique Codes: ${stats.uniqueCodes}\n`;
-	content += `Active Users: ${stats.uniqueUsers}\n\n`;
-	if (recent.length > 0) {
-		content += `🕒 **Recent Redemptions:**\n`;
-
-		for (const record of recent) {
-			const status = record.success ? '✅' : '❌';
-			const time = record.timestamp.toLocaleTimeString();
-			content += `${status} \`${record.code}\` - ${time}\n`;
-		}
-	}
-
-	await interaction.reply({ content, flags: 'Ephemeral' });
-};
-
-const showVersion = async (interaction: ChatInputCommandInteraction) => {
-	const version = process.env.npm_package_version || 'unknown';
-	const buildTime = process.env.BUILD_TIME || 'unknown';
-	const gitTag = process.env.GIT_TAG || 'unknown';
-
-	const content = `🤖 **Bot Version Info**\n` +
-		`Version: \`${version}\`\n` +
-		`Git Tag: \`${gitTag}\`\n` +
-		`Build: \`${buildTime}\`\n` +
-		`Node.js: \`${process.version}\``;
-
-	await interaction.reply({ content, flags: 'Ephemeral' });
 };
 
 const showServers = async (interaction: ChatInputCommandInteraction) => {
@@ -228,6 +185,20 @@ ${fullServerList}`);
 	}
 };
 
+const showVersion = async (interaction: ChatInputCommandInteraction) => {
+	const version = process.env.npm_package_version || 'unknown';
+	const buildTime = process.env.BUILD_TIME || 'unknown';
+	const gitTag = process.env.GIT_TAG || 'unknown';
+
+	const content = `🤖 **Bot Version Info**\n` +
+		`Version: \`${version}\`\n` +
+		`Git Tag: \`${gitTag}\`\n` +
+		`Build: \`${buildTime}\`\n` +
+		`Node.js: \`${process.version}\``;
+
+	await interaction.reply({ content, flags: 'Ephemeral' });
+};
+
 const handleMessageCreate = async ({ author, content, channel }: Message) => {
 	if (!channel.isSendable()) {
 		throw new Error('Cannot send a message through this channel. 😳');
@@ -244,7 +215,6 @@ const handleMessageCreate = async ({ author, content, channel }: Message) => {
 		try {
 			const webClient = useRedeemer();
 			const succeeded = await webClient.redeem(giftCode);
-			succeeded.forEach(userId => analytics.addRecord(giftCode, userId, true));
 			if (succeeded.length > 0) {
 				const successList = succeeded.map(id => `\`${id}\``).join(', ');
 				await channel.send(`✅ Auto-redeemed code \`${giftCode}\` for: ${successList}`);
@@ -274,9 +244,6 @@ const handleSlashCommand = async (interaction: ChatInputCommandInteraction) => {
 			break;
 		case 'redeem':
 			await redeemManually(interaction);
-			break;
-		case 'stats':
-			await showStats(interaction);
 			break;
 		case 'version':
 			await showVersion(interaction);
