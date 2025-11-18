@@ -133,8 +133,8 @@ const redeemManually = async (interaction: ChatInputCommandInteraction) => {
 	await interaction.deferReply();
 
 	try {
-		const webClient = useRedeemer();
-		const succeeded = await webClient.redeem(giftCode);
+		const { redeem } = useRedeemer();
+		const succeeded = await redeem(giftCode);
 
 		if (succeeded.length === 0) {
 			await interaction.editReply({ content: `❌ Failed to redeem code \`${giftCode}\` for any users` });
@@ -213,8 +213,8 @@ const handleMessageCreate = async ({ author, content, channel }: Message) => {
 		console.log(`🎁 Auto-detected gift code: ${giftCode}`);
 
 		try {
-			const webClient = useRedeemer();
-			const succeeded = await webClient.redeem(giftCode);
+			const { redeem } = useRedeemer();
+			const succeeded = await redeem(giftCode);
 			if (succeeded.length > 0) {
 				const successList = succeeded.map(id => `\`${id}\``).join(', ');
 				await channel.send(`✅ Auto-redeemed code \`${giftCode}\` for: ${successList}`);
