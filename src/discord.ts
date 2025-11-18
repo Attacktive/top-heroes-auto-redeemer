@@ -20,8 +20,17 @@ const extractGiftCode = (message: string) => {
 	return undefined;
 };
 
+const ADD_USER_COMMAND_NAME = 'add-user' as const;
+const REMOVE_USER_COMMAND_NAME = 'remove-user' as const;
+const CLEAR_USERS_COMMAND_NAME = 'clear-users' as const;
+const LIST_USERS_COMMAND_NAME = 'list-users' as const;
+const REDEEM_COMMAND_NAME = 'redeem' as const;
+const REDEEM_FOR_ALL_COMMAND_NAME = 'redeem-bulk' as const;
+const SERVERS_COMMAND_NAME = 'servers' as const;
+const VERSION_COMMAND_NAME = 'version' as const;
+
 const addUserCommand = new SlashCommandBuilder()
-	.setName('add-user')
+	.setName(ADD_USER_COMMAND_NAME)
 	.setDescription('Add a user ID to the redemption list')
 	.addStringOption(option => option.setName('user-id')
 		.setDescription('The user ID to add')
@@ -30,7 +39,7 @@ const addUserCommand = new SlashCommandBuilder()
 	.toJSON();
 
 const removeUserCommand = new SlashCommandBuilder()
-	.setName('remove-user')
+	.setName(REMOVE_USER_COMMAND_NAME)
 	.setDescription('Remove a user ID from the redemption list')
 	.addStringOption(option => option.setName('user-id')
 		.setDescription('The user ID to remove')
@@ -39,18 +48,31 @@ const removeUserCommand = new SlashCommandBuilder()
 	.toJSON();
 
 const clearUsersCommand = new SlashCommandBuilder()
-	.setName('clear-users')
+	.setName(CLEAR_USERS_COMMAND_NAME)
 	.setDescription('Clear all user IDs from the redemption list')
 	.toJSON();
 
 const listUsersCommand = new SlashCommandBuilder()
-	.setName('list-users')
+	.setName(LIST_USERS_COMMAND_NAME)
 	.setDescription('List all current user IDs')
 	.toJSON();
 
 const redeemCommand = new SlashCommandBuilder()
 	.setName('redeem')
-	.setDescription('Manually redeem a gift code')
+	.setDescription('Manually redeem a gift code for the specified user')
+	.addStringOption(option => option.setName('code')
+		.setDescription('The gift code to redeem')
+		.setRequired(true)
+	)
+	.addStringOption(option => option.setName('user-id')
+		.setDescription('The user ID to get rewarded')
+		.setRequired(true)
+	)
+	.toJSON();
+
+const redeemBulkCommand = new SlashCommandBuilder()
+	.setName(REDEEM_FOR_ALL_COMMAND_NAME)
+	.setDescription('Manually redeem a gift code for every registered user')
 	.addStringOption(option => option.setName('code')
 		.setDescription('The gift code to redeem')
 		.setRequired(true)
@@ -58,16 +80,16 @@ const redeemCommand = new SlashCommandBuilder()
 	.toJSON();
 
 const serversCommand = new SlashCommandBuilder()
-	.setName('servers')
+	.setName(SERVERS_COMMAND_NAME)
 	.setDescription('List all servers (guilds) the bot has joined')
 	.toJSON();
 
 const versionCommand = new SlashCommandBuilder()
-	.setName('version')
+	.setName(VERSION_COMMAND_NAME)
 	.setDescription('Show bot version and build info')
 	.toJSON();
 
-const commands = [addUserCommand, removeUserCommand, clearUsersCommand, listUsersCommand, redeemCommand, serversCommand, versionCommand];
+const commands = [addUserCommand, removeUserCommand, clearUsersCommand, listUsersCommand, redeemCommand, redeemBulkCommand, serversCommand, versionCommand];
 
 const addUser = async (interaction: ChatInputCommandInteraction) => {
 	const userId = interaction.options.getString('user-id', true);
@@ -128,13 +150,27 @@ ${userList}`);
 	});
 };
 
-const redeemManually = async (interaction: ChatInputCommandInteraction) => {
+const redeemForSingleUser = async (interaction: ChatInputCommandInteraction) => {
+	const giftCode = interaction.options.getString('code', true);
+	const userId = interaction.options.getString('user-id', true);
+	const reply = await interaction.deferReply();
+
+	const { redeem } = useRedeemer();
+	const success = await redeem(giftCode, userId);
+	if (success) {
+		await reply.edit({ content: `✅ Successfully redeemed code \`${giftCode}\` for: ${userId}` });
+	} else {
+		await reply.edit({ content: `❌ Failed to redeem code \`${giftCode}\` for \`${userId}\`` });
+	}
+}
+
+const redeemBulk = async (interaction: ChatInputCommandInteraction) => {
 	const giftCode = interaction.options.getString('code', true);
 	await interaction.deferReply();
 
 	try {
-		const { redeem } = useRedeemer();
-		const succeeded = await redeem(giftCode);
+		const { redeemForAll } = useRedeemer();
+		const succeeded = await redeemForAll(giftCode);
 
 		if (succeeded.length === 0) {
 			await interaction.editReply({ content: `❌ Failed to redeem code \`${giftCode}\` for any users` });
@@ -213,8 +249,8 @@ const handleMessageCreate = async ({ author, content, channel }: Message) => {
 		console.log(`🎁 Auto-detected gift code: ${giftCode}`);
 
 		try {
-			const { redeem } = useRedeemer();
-			const succeeded = await redeem(giftCode);
+			const { redeemForAll } = useRedeemer();
+			const succeeded = await redeemForAll(giftCode);
 			if (succeeded.length > 0) {
 				const successList = succeeded.map(id => `\`${id}\``).join(', ');
 				await channel.send(`✅ Auto-redeemed code \`${giftCode}\` for: ${successList}`);
@@ -230,26 +266,29 @@ const handleMessageCreate = async ({ author, content, channel }: Message) => {
 
 const handleSlashCommand = async (interaction: ChatInputCommandInteraction) => {
 	switch (interaction.commandName) {
-		case 'add-user':
+		case ADD_USER_COMMAND_NAME:
 			await addUser(interaction);
 			break;
-		case 'remove-user':
+		case REMOVE_USER_COMMAND_NAME:
 			await removeUser(interaction);
 			break;
-		case 'clear-users':
+		case CLEAR_USERS_COMMAND_NAME:
 			await clearUsers(interaction);
 			break;
-		case 'list-users':
+		case LIST_USERS_COMMAND_NAME:
 			await listUsers(interaction);
 			break;
-		case 'redeem':
-			await redeemManually(interaction);
+		case REDEEM_COMMAND_NAME:
+			await redeemForSingleUser(interaction);
 			break;
-		case 'version':
-			await showVersion(interaction);
+		case REDEEM_FOR_ALL_COMMAND_NAME:
+			await redeemBulk(interaction);
 			break;
-		case 'servers':
+		case SERVERS_COMMAND_NAME:
 			await showServers(interaction);
+			break;
+		case VERSION_COMMAND_NAME:
+			await showVersion(interaction);
 			break;
 		default:
 			await interaction.reply({
