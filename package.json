@@ -18,7 +18,7 @@
 	},
 	"dependencies": {
 		"axios": "^1.13.2",
-		"discord.js": "^14.24.2"
+		"discord.js": "^14.25.0"
 	},
 	"devDependencies": {
 		"@eslint/js": "^9.39.1",
