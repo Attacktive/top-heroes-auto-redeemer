@@ -49,7 +49,53 @@ export const useRedeemer = (userIds?: string[]) => {
 
 	const sleep = (duration = 666) => new Promise(resolve => setTimeout(resolve, duration));
 
-	const redeem = async (giftCode: string) => {
+	const redeem = async (giftCode: string, userId: string) => {
+		console.log(`🎁 Attempting to redeem gift code: ${giftCode} for user: ${userId}`);
+
+		const axiosInstance = createAxiosInstance();
+
+		try {
+			console.log(`🔐 Logging in user: ${userId}`);
+			const { headers: responseHeaders }: AxiosResponse = await axiosInstance.post(
+				URL_TO_LOGIN,
+				createLoginBody(userId)
+			);
+
+			const authorization: string | undefined = responseHeaders['authorization'];
+			console.log('Authorization:', authorization);
+
+			if (!authorization) {
+				console.error(`⚠️  The 'Authorization' header is missing for user ${userId}, skipping`);
+				return false;
+			}
+
+			console.log(`🎯 Redeeming code for user: ${userId}`);
+			const { data: responseData } = await axiosInstance.post<RedemptionResponse>(
+				URL_TO_REDEEM,
+				createRedeemBody(giftCode),
+				{
+					headers: { 'Authorization': authorization }
+				}
+			);
+
+			const { data, code, message } = responseData;
+
+			// or might be code === 1
+			if (data === 'success') {
+				console.log(`✅ Result for user ${userId}:`, data);
+
+				return true;
+			} else {
+				console.error(`❌ Error processing user ${userId}:`, `(${code})`, message);
+			}
+		} catch (error) {
+			console.error(`❌ Error processing user ${userId}:`, error);
+		}
+
+		return false;
+	};
+
+	const redeemForAll = async (giftCode: string) => {
 		console.log(`🎁 Attempting to redeem gift code: ${giftCode}`);
 		console.log(`👥 Target users: ${targetUserIds.join(', ')}`);
 
@@ -60,40 +106,10 @@ export const useRedeemer = (userIds?: string[]) => {
 
 		const succeeded: string[] = [];
 		for (const [index, userId] of targetUserIds.entries()) {
-			const axiosInstance = createAxiosInstance();
-
 			try {
-				console.log(`🔐 Logging in user: ${userId}`);
-				const { headers: responseHeaders }: AxiosResponse = await axiosInstance.post(
-					URL_TO_LOGIN,
-					createLoginBody(userId)
-				);
-
-				const authorization: string | undefined = responseHeaders['authorization'];
-				console.log('Authorization:', authorization);
-
-				if (!authorization) {
-					console.warn(`⚠️  The 'Authorization' header is missing for user ${userId}, skipping`);
-					continue;
-				}
-
-				console.log(`🎯 Redeeming code for user: ${userId}`);
-				const { data: responseData } = await axiosInstance.post<RedemptionResponse>(
-					URL_TO_REDEEM,
-					createRedeemBody(giftCode),
-					{
-						headers: { 'Authorization': authorization }
-					}
-				);
-
-				const { data, code, message } = responseData;
-
-				// or might be code === 1
-				if (data === 'success') {
-					console.log(`✅ Result for user ${userId}:`, data);
+				const success = await redeem(giftCode, userId);
+				if (success) {
 					succeeded.push(userId);
-				} else {
-					console.error(`❌ Error processing user ${userId}:`, `(${code})`, message);
 				}
 			} catch (error) {
 				console.error(`❌ Error processing user ${userId}:`, error);
@@ -110,5 +126,5 @@ export const useRedeemer = (userIds?: string[]) => {
 		return succeeded;
 	};
 
-	return { redeem };
+	return { redeem, redeemForAll };
 };
