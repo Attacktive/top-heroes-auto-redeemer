@@ -217,37 +217,26 @@ const showVersion = async (interaction: ChatInputCommandInteraction) => {
 	await interaction.reply({ content, flags: 'Ephemeral' });
 };
 
+const commandHandlers: Record<string, (interaction: ChatInputCommandInteraction) => Promise<void>> = {
+	[ADD_USER_COMMAND_NAME]: addUser,
+	[REMOVE_USER_COMMAND_NAME]: removeUser,
+	[CLEAR_USERS_COMMAND_NAME]: clearUsers,
+	[LIST_USERS_COMMAND_NAME]: listUsers,
+	[REDEEM_COMMAND_NAME]: redeemForSingleUser,
+	[REDEEM_FOR_ALL_COMMAND_NAME]: redeemBulk,
+	[SERVERS_COMMAND_NAME]: showServers,
+	[VERSION_COMMAND_NAME]: showVersion
+};
+
 const handleSlashCommand = async (interaction: ChatInputCommandInteraction) => {
-	switch (interaction.commandName) {
-		case ADD_USER_COMMAND_NAME:
-			await addUser(interaction);
-			break;
-		case REMOVE_USER_COMMAND_NAME:
-			await removeUser(interaction);
-			break;
-		case CLEAR_USERS_COMMAND_NAME:
-			await clearUsers(interaction);
-			break;
-		case LIST_USERS_COMMAND_NAME:
-			await listUsers(interaction);
-			break;
-		case REDEEM_COMMAND_NAME:
-			await redeemForSingleUser(interaction);
-			break;
-		case REDEEM_FOR_ALL_COMMAND_NAME:
-			await redeemBulk(interaction);
-			break;
-		case SERVERS_COMMAND_NAME:
-			await showServers(interaction);
-			break;
-		case VERSION_COMMAND_NAME:
-			await showVersion(interaction);
-			break;
-		default:
-			await interaction.reply({
-				content: '❌ Unknown command',
-				flags: 'Ephemeral'
-			});
+	const handler = commandHandlers[interaction.commandName];
+	if (handler) {
+		await handler(interaction);
+	} else {
+		await interaction.reply({
+			content: '❌ Unknown command',
+			flags: 'Ephemeral'
+		});
 	}
 };
 
