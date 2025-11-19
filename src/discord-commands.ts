@@ -148,21 +148,21 @@ const redeemForSingleUser = async (interaction: ChatInputCommandInteraction) => 
 
 const redeemBulk = async (interaction: ChatInputCommandInteraction) => {
 	const giftCode = interaction.options.getString('code', true);
-	await interaction.deferReply();
+	const reply = await interaction.deferReply();
 
 	try {
 		const { redeemForAll } = useRedeemer();
 		const succeeded = await redeemForAll(giftCode);
 
 		if (succeeded.length === 0) {
-			await interaction.editReply({ content: `❌ Failed to redeem code \`${giftCode}\` for any users` });
+			await reply.edit({ content: `❌ Failed to redeem code \`${giftCode}\` for any users` });
 		} else {
 			const successList = succeeded.map(id => `\`${id}\``).join(', ');
-			await interaction.editReply({ content: `✅ Successfully redeemed code \`${giftCode}\` for: ${successList}` });
+			await reply.edit({ content: `✅ Successfully redeemed code \`${giftCode}\` for: ${successList}` });
 		}
 	} catch (error) {
 		console.error('Manual redeem error:', error);
-		await interaction.editReply({ content: `❌ Error redeeming code \`${giftCode}\`: ${error}` });
+		await reply.edit({ content: `❌ Error redeeming code \`${giftCode}\`: ${error}` });
 	}
 };
 
